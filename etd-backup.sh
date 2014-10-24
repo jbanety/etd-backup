@@ -103,14 +103,16 @@ done
 echo "Sauvegarde des fichiers des sites internet"
 
 # On parcourt les dossiers du serveur web
-cd $WWW_ROOTDIR
+cd ${WWW_ROOTDIR}
 for dir in `ls -d */`
 do
 	if echo "$dir" | grep -v -E $WWW_EXCLUSIONS > /dev/null ; then
-		echo $dir
+		echo "Dump $dir"
+
+		# On copie le contenu du dossier
+		cp -a ${WWW_ROOTDIR}/${DIR} ${DATATMP}/${DATANAME}/www/${DIR}
 	fi
 done
-
 
 # On crée une archive TAR bzippée.
 cd ${DATATMP}
