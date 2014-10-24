@@ -110,7 +110,7 @@ trap cleanup EXIT
 ionice -c3 -p$$ &>/dev/null
 renice -n 19 -p $$ &>/dev/null
 
-echo "Début de la sauvegarde à $start."
+echo "Début de la sauvegarde à $(date)."
 
 # On crée sur le disque les répertoires temporaires
 mkdir -p ${DATATMP}/${DATANAME}/mysql
@@ -182,5 +182,5 @@ unset PASSPHRASE
 end=$(date +"%s")
 diff=$(($end-$start))
 
-echo "Sauvegarde terminée à $end en $(($diff / 60)) minutes et $(($diff % 60)) secondes."
+echo "Sauvegarde terminée à $(date) en $(($diff / 60)) minutes et $(($diff % 60)) secondes."
 exit 0
