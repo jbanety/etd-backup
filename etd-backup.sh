@@ -69,7 +69,7 @@ function cleanup {
     unset CLOUDFILES_APIKEY
     unset PASSPHRASE
     if [ "`stat --format %s ${LOGERROR}`" != "0" ] && [ "$EMAIL" != "0" ] ; then
-        cat ${LOGERROR} | mail -s "$SAUVNAME - ETD Backup - Erreurs" ${EMAIL}
+        cat ${LOGERROR} | mail -s "ETD Backup - $SAUVNAME - Erreurs" ${EMAIL}
     fi
 }
 trap cleanup EXIT
@@ -110,12 +110,12 @@ fi
 rm -rf ${DATATMP}/${DATANAME}
 
 echo "Suppression des vieux backups locaux"
-find ${DATADIR} -name "*${COMPRESSIONEXT}" -mtime +${RETENTION} -print -exec rm {} \;
+find ${DATADIR} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
 
 echo "Envoi des backups sur hubic"
-export CLOUDFILES_USERNAME=${HUBICUSER}
-export CLOUDFILES_APIKEY=${HUBICPASSWORD}
-export CLOUDFILES_AUTHURL="hubic|${HUBICAPPID}|${HUBICAPPSECRET}|${HUBICAPPURLREDIRECT}"
+export CLOUDFILES_USERNAME=${HUBIC_USER}
+export CLOUDFILES_APIKEY=${HUBIC_PASSWORD}
+export CLOUDFILES_AUTHURL="hubic|${HUBIC_APPID}|${HUBIC_APPSECRET}|${HUBIC_APPURLREDIRECT}"
 export PASSPHRASE
 
 # Backup
@@ -126,7 +126,7 @@ ${DUPLICITY_BIN} remove-older-than ${RETENTION}D cf+http://${HUBIC_FOLDER} --for
 
 # Rapport sur le backup
 if [ "$RAPPORT" != "0" ] && [ "$EMAIL" != "0" ] ; then
-        ${DUPLICITY_BIN} collection-status cf+http://${HUBIC_FOLDER} | mail -s "$SAUVNAME - ETD Backup - Rapport hubiC" ${EMAIL}
+        ${DUPLICITY_BIN} collection-status cf+http://${HUBIC_FOLDER} | mail -s "ETD Backup - $SAUVNAME - Rapport hubiC" ${EMAIL}
 fi
 
 unset CLOUDFILES_USERNAME
