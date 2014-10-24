@@ -10,6 +10,8 @@
 
 set -eu
 
+start=$(date +"%s")
+
 ## Paramètres
 # @var string Nom de la sauvegarde
 SAUVNAME=`hostname`
@@ -82,7 +84,7 @@ trap cleanup EXIT
 ionice -c3 -p$$ &>/dev/null
 renice -n 19 -p $$ &>/dev/null
 
-echo "Début de la sauvegarde à $(date)."
+echo "Début de la sauvegarde à $start."
 
 # On crée sur le disque les répertoires temporaires
 mkdir -p ${DATATMP}/${DATANAME}/mysql
@@ -151,5 +153,8 @@ unset CLOUDFILES_USERNAME
 unset CLOUDFILES_APIKEY
 unset PASSPHRASE
 
-echo "Sauvegarde terminée à $(date)."
+end=$(date +"%s")
+diff=$(($date2-$date1))
+
+echo "Sauvegarde terminée à $end en $(($diff / 60)) minutes et $(($diff % 60)) secondes."
 exit 0
