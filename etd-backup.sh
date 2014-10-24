@@ -35,6 +35,10 @@ DB_USER="etdbackup"
 DB_PASS="@cvyizqB9qNL8zi@"
 # @var string Noms des bases de données à exclure (regex)
 DB_EXCLUSIONS="(information_schema|performance_schema)"
+# @var string Chemin vers le dossier des sites internet
+WWW_ROOTDIR = "/var/www/vhosts"
+# @var string Noms des dossiers à exclure
+WWW_EXCLUSIONS="(system|chroot|default|fs|fs-passwd)"
 # Utilisateur Hubic
 HUBIC_USER="contact@etudoo.fr"
 # Mot de passe HubiC
@@ -93,8 +97,20 @@ databases="$(mysql -u $DB_USER -p$DB_PASS -Bse 'show databases' | grep -v -E $DB
 for database in ${databases[@]}
 do
     echo "Dump $database"
-    mysqldump -u $DB_USER -p$DB_PASS --quick --add-locks --lock-tables --extended-insert $database  > ${DATATMP}/${DATANAME}/mysql/${database}.sql
+    mysqldump -u $DB_USER -p$DB_PASS --quick --add-locks --lock-tables --events --extended-insert $database  > ${DATATMP}/${DATANAME}/mysql/${database}.sql
 done
+
+echo "Sauvegarde des fichiers des sites internet"
+
+# On parcourt les dossiers du serveur web
+cd $WWW_ROOTDIR
+for dir in `ls -d */`
+do
+	if echo "$dir" | grep -v -E $WWW_EXCLUSIONS > /dev/null ; then
+		echo $dir
+	fi
+done
+
 
 # On crée une archive TAR bzippée.
 cd ${DATATMP}
