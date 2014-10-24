@@ -36,7 +36,7 @@ DB_PASS="@cvyizqB9qNL8zi@"
 # @var string Noms des bases de données à exclure (regex)
 DB_EXCLUSIONS="(information_schema|performance_schema)"
 # @var string Chemin vers le dossier des sites internet
-WWW_ROOTDIR = "/var/www/vhosts"
+WWW_ROOTDIR="/var/www/vhosts"
 # @var string Noms des dossiers à exclure
 WWW_EXCLUSIONS="(system|chroot|default|fs|fs-passwd)"
 # Utilisateur Hubic
