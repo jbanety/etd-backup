@@ -165,10 +165,10 @@ export CLOUDFILES_AUTHURL="hubic|${HUBIC_APPID}|${HUBIC_APPSECRET}|${HUBIC_APPUR
 export PASSPHRASE
 
 # Backup
-${DUPLICITY_BIN} --full-if-older-than ${FULLIFOLDERTHAN} / cf+http://${HUBIC_FOLDER} --include ${DATADIR}/ --exclude '**'
+${DUPLICITY_BIN} -v0 --full-if-older-than ${FULLIFOLDERTHAN} / cf+http://${HUBIC_FOLDER} --include ${DATADIR}/ --exclude '**'
 
 # Suppression des vieux backups
-${DUPLICITY_BIN} remove-older-than ${RETENTION}D cf+http://${HUBIC_FOLDER} --force
+${DUPLICITY_BIN} remove-older-than ${RETENTION}D cf+http://${HUBIC_FOLDER} -v0 --force
 
 # Rapport sur le backup
 if [ "$RAPPORT" != "0" ] && [ "$EMAIL" != "0" ] ; then
