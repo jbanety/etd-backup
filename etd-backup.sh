@@ -365,7 +365,7 @@ fi
 if [ "$1" != "" ] ; then
 
 	# On vérifie que la commande exite.
-	if [[ "$1" != "backup" && "$1" != "restore" && "$1" != "clean" && "$1" != "test" && "$1" != "purge" ]]; then
+	if [[ "$1" != "backup" && "$1" != "restore" && "$1" != "clean" && "$1" != "test" && "$1" != "purge" && "$1" != "status" ]]; then
 		verbose_exec echo "Attention: La commande $1 est inconnue et a été ignorée"
 		usage
 		exit
@@ -482,6 +482,16 @@ case "${func}" in
 		# On teste la dernière sauvegarde le serveur distant
 		test_duplicity
 
+		;;
+		
+	# Statut
+	status )
+	
+		# on prépare les variables le serveur distant
+		init_duplicity
+	
+		duplicity_report
+		
 		;;
 esac
 
