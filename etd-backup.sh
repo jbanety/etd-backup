@@ -13,11 +13,28 @@ set -e
 start=$(date +"%s")
 
 #### Paramètres
+CONFIGFILE="/etc/etd-backup.cfg"
+DATANAME="dump_$(date +%d.%m.%y@%Hh%M)"
+DUPLICITY_URL=""
+
+# On charge la configuration
+shopt -s extglob
+while IFS='= ' read lhs rhs
+do
+    if [[ ! $lhs =~ ^\ *# && -n $lhs ]]; then
+        rhs="${rhs%%\#*}"    # Del in line right comments
+        rhs="${rhs%%*( )}"   # Del trailing spaces
+        rhs="${rhs%\"*}"     # Del opening string quotes 
+        rhs="${rhs#\"*}"     # Del closing string quotes 
+        declare $lhs="$rhs"
+    fi
+done < ${CONFIGFILE}
 
 # Initialisation des variables
 verbose=0
 ignore_db=0
 ignore_files=0
+archive=0
 func=
 
 ## Logging des messages
@@ -25,27 +42,28 @@ exec 3>&1 1>>${LOGFILE} 2>&1
 
 #### Fonctions
 
-# Fonction pour envoyer un message dans le fichier de log mais aussi à la console
+# Fonction pour exécuter une commande et envoyer les messages dans le fichier de log mais aussi à la console
 # si le paramètre verbose est à 1.
 #
 # @param integer $1 Le message à envoyer
 #
-function echo_msg {
+function verbose_exec {
 	if [ $verbose -eq 1 ] ; then
-		echo $1 | tee /dev/fd/3
+		"$@" | tee /dev/fd/3
 	else
-		echo $1
+		"$@"
 	fi
 }
 
 #
-# Fonction pour créer les répertoires temporaires.
+# Fonction pour créer les répertoires.
 #
-function mk_tmp_dirs {
-	echo_msg "Création des dossiers temporaires"
+function mk_dirs {
+	verbose_exec echo "Création des dossiers"
 	mkdir -p ${DATATMP}/${DATANAME}/mysql
 	mkdir -p ${DATATMP}/${DATANAME}/www
-	echo_msg "Dossiers temporaires créés"
+	mkdir -p ${DATADIR}
+	verbose_exec echo "Dossiers créés"
 }
 
 #
@@ -53,18 +71,18 @@ function mk_tmp_dirs {
 #
 function db_backup {
 
-	echo_msg "Sauvegarde des bases de données"
+	verbose_exec echo "Sauvegarde des bases de données"
 
 	# On place dans un tableau le nom de toutes les bases de données du serveur
 	databases="$(mysql -u $DB_USER -p$DB_PASS -Bse 'show databases' | grep -v -E $DB_EXCLUSIONS)"
 
 	# Pour chacune des bases de données trouvées ...
 	for database in ${databases[@]}; do
-	    echo_msg "Dump $database"
-	    mysqldump -u $DB_USER -p$DB_PASS --quick --add-locks --lock-tables --events --extended-insert $database  > ${DATATMP}/${DATANAME}/mysql/${database}.sql
+		verbose_exec echo "Dump $database"
+		mysqldump -u $DB_USER -p$DB_PASS ${MYSQLDUMP_OPTIONS} $database > ${DATATMP}/${DATANAME}/mysql/${database}.sql
 	done
 
-	echo_msg "Bases de données sauvegardées"
+	verbose_exec echo "Bases de données sauvegardées"
 
 }
 
@@ -73,21 +91,21 @@ function db_backup {
 #
 function files_backup {
 
-	echo_msg "Sauvegarde des fichiers"
+	verbose_exec echo "Sauvegarde des fichiers"
 
 	# On parcourt les dossiers du serveur web
 	cd ${WWW_ROOTDIR}
 	for DIR in `ls -d */`
 	do
 		if echo "$DIR" | grep -v -E $WWW_EXCLUSIONS > /dev/null ; then
-			echo_msg "Dump $DIR"
+			verbose_exec echo "Dump $DIR"
 
 			# On copie le contenu du dossier
 			cp -a ${WWW_ROOTDIR}/${DIR} ${DATATMP}/${DATANAME}/www/${DIR}
 		fi
 	done
 
-	echo_msg "Fichiers sauvegardés"
+	verbose_exec echo "Fichiers sauvegardés"
 
 }
 
@@ -96,6 +114,8 @@ function files_backup {
 #
 function make_archive {
 
+	verbose_exec echo "Création d'une archive"
+
 	# On crée une archive TAR bzippée.
 	cd ${DATATMP}
 	${COMPRESSION_CMD} ${DATANAME}${COMPRESSION_EXT} ${COMPRESSION_OPT} ${DATANAME}/
@@ -103,55 +123,131 @@ function make_archive {
 
 	# On la déplace dans le répertoire final de stockage
 	if [ "$DATATMP" != "$DATADIR" ] ; then
-	    mv ${DATANAME}${COMPRESSION_EXT} ${DATADIR}
+		mv ${DATANAME}${COMPRESSION_EXT} ${DATADIR}
 	fi
 
 	# On supprime le répertoire temporaire
 	rm -rf ${DATATMP}/${DATANAME}
 
-} 
+	verbose_exec echo "Archive crée"
+
+}
 
 #
 # Fonction pour supprimer les vieilles sauvegardes sur le système local.
 #
 function clean_old_local_backups {
-	echo_msg "Suppression des vieux backups locaux"
-	find ${DATADIR} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
-	echo_msg "Suppression effectuée"
-}
 
-#
-# Fonction pour supprimer les vieilles sauvegardes sur hubiC.
-#
-function clean_old_hubic_backups {
-	# Suppression des vieux backups
-	${DUPLICITY_BIN} remove-older-than ${RETENTION}D cf+http://${HUBIC_FOLDER} -v0 --force
-}
-
-#
-# Fonction pour stocker les sauvegardes cryptées sur hubiC
-#
-function send_backups_to_hubic {
-
-	echo_msg "Envoi des backups sur hubiC"
-
-	# On exporte les variables pour duplicity
-	export CLOUDFILES_USERNAME=${HUBIC_USER}
-	export CLOUDFILES_APIKEY=${HUBIC_PASSWORD}
-	export CLOUDFILES_AUTHURL="hubic|${HUBIC_APPID}|${HUBIC_APPSECRET}|${HUBIC_APPURLREDIRECT}"
-	export PASSPHRASE
-
-	# On appel duplicity pour effectuer la sauvegarde cryptée sur hubiC
-	${DUPLICITY_BIN} -v0 --full-if-older-than ${FULLIFOLDERTHAN} / cf+http://${HUBIC_FOLDER} --include ${DATADIR}/ --exclude '**'
-
-	echo_msg "Envoi terminé"
-}
-
-function send_hubic_report {
-	# Rapport sur le backup
-	if [ "$RAPPORT" != "0" ] && [ "$EMAIL" != "0" ] ; then
-		${DUPLICITY_BIN} collection-status cf+http://${HUBIC_FOLDER} | mail -s "ETD Backup - $SAUVNAME - Rapport hubiC" ${EMAIL}
+	verbose_exec echo "Suppression des vieux backups locaux"
+	if [ -d ${DATADIR} ]; then
+		find ${DATADIR} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
 	fi
+	verbose_exec echo "Suppression effectuée"
+
+}
+
+#
+# Fonction pour supprimer les vieilles sauvegardes sur le serveur distant.
+#
+function remove_old_duplicity_backups {
+
+	verbose_exec echo "Suppression des vieux backups distants"
+
+	# Suppression des vieux backups
+	verbose_exec ${DUPLICITY_BIN} remove-older-than ${RETENTION}D --force ${DUPLICITY_URL}
+
+	verbose_exec echo "Suppression effectuée"
+
+}
+
+#
+# Fonction pour supprimer les fichiers inutiles et récupérer de l'espace libre.
+#
+function clean_duplicity_backups {
+
+	verbose_exec echo "Suppression des fichiers inutiles sur le serveur distant"
+	verbose_exec ${DUPLICITY_BIN} cleanup --force --extra-clean ${DUPLICITY_URL}
+	verbose_exec echo "Suppression effectuée"
+
+}
+
+#
+# Fonction pour supprimer tous les dossiers et fichiers locaux
+#
+function purge_local {
+
+	verbose_exec echo "Suppression de tous les fichiers locaux"
+
+	# On supprime le dossier des données
+	rm -rf ${DATADIR}
+
+	# On supprime le dossier temporaire
+	rm -rf ${DATATMP}
+
+	verbose_exec echo "Suppression effectuée"
+
+}
+
+function purge_duplicity {
+
+	verbose_exec echo "Suppression de tous les fichiers distants"
+
+	# On supprime le dossier des données
+	verbose_exec ${DUPLICITY_BIN} remove-older-than now --force ${DUPLICITY_URL}
+
+	verbose_exec echo "Suppression effectuée"
+
+}
+
+#
+# Fonction pour stocker les sauvegardes cryptées sur le serveur distant
+#
+function send_backups_to_duplicity {
+
+	verbose_exec echo "Envoi des backups sur le serveur distant"
+
+	progress=""
+	if [ $verbose -eq 1 ]; then
+		progress=" --progress"
+	fi
+
+	dirtosend=${DATATMP}
+	if [ $archive -eq 1 ]; then
+		dirtosend=${DATADIR}
+	fi
+
+	# On appel duplicity pour effectuer la sauvegarde cryptée sur le serveur distant
+	verbose_exec ${DUPLICITY_BIN} --full-if-older-than ${FULLIFOLDERTHAN}${progress} / ${DUPLICITY_URL} --include ${dirtosend}/ --exclude '**'
+
+	verbose_exec echo "Envoi terminé"
+}
+
+#
+# Fonction pour générer le rapport sur le stockage distant
+#
+function duplicity_report {
+
+	verbose_exec echo "Récupération du rapport sur les sauvegardes le serveur distant"
+
+	# Rapport sur le backup
+	verbose_exec ${DUPLICITY_BIN} collection-status ${DUPLICITY_URL}
+
+	verbose_exec echo "Récupération terminée"
+
+}
+
+#
+# Fonction pour tester la dernière sauvegarde distante.
+#
+function test_duplicity {
+
+	verbose_exec echo "Vérification des données"
+
+	# On vérifie la sauvegarde
+	verbose_exec ${DUPLICITY_BIN} verify --compare-data ${DUPLICITY_URL} ${DATADIR}
+
+	verbose_exec echo "Vérification terminée"
+
 }
 
 #
@@ -164,15 +260,18 @@ function usage {
 	echo "  etd-backup.sh clean [options]" 1>&3
 	echo "  etd-backup.sh purge [options]" 1>&3
 	echo "  etd-backup.sh test [options]" 1>&3
+	echo "  etd-backup.sh status [options]" 1>&3
 	echo "" 1>&3
 	echo "Commandes:" 1>&3
-	echo "  backup	Sauvegarde les données localement et sur hubiC" 1>&3
+	echo "  backup	Sauvegarde les données localement et sur le serveur distant" 1>&3
 	echo "  restore	Restaure la dernière sauvegarde" 1>&3
 	echo "  clean		Nettoie les anciennes sauvegardes" 1>&3
 	echo "  purge		Supprime toutes les sauvegardes locales et distantes" 1>&3
 	echo "  test		Teste la dernière sauvegarde" 1>&3
+	echo "  status	Donne le statut actuel de la sauvegarde" 1>&3
 	echo "" 1>&3
 	echo "Options:" 1>&3
+	echo "  -a, --archive	Crée une archive avant l'envoi des fichiers" 1>&3
 	echo "  -h, --help		Affiche ce message" 1>&3
 	echo "      --ignore-db	Ignore les bases de données" 1>&3
 	echo "      --ignore-files	Ignore les fichiers" 1>&3
@@ -193,28 +292,72 @@ function init {
 }
 
 #
+# Fonction pour préparer l'appel à duplicity
+#
+function init_duplicity {
+
+	case "${DUPLICITY_BACKEND}" in
+		hubic )		DUPLICITY_URL="cf+http://${HUBIC_FOLDER}"
+					export CLOUDFILES_USERNAME=${HUBIC_USER}
+					export CLOUDFILES_APIKEY=${HUBIC_PASSWORD}
+					export CLOUDFILES_AUTHURL="duplicity|${HUBIC_APPID}|${HUBIC_APPSECRET}|${HUBIC_APPURLREDIRECT}"
+					;;
+		sftp )		DUPLICITY_URL="sftp://${SFTP_USER}@${SFTP_HOST}:${SFTP_PORT}/${SFTP_FOLDER}"
+					;;
+		* )			break
+	esac
+
+	export PASSPHRASE
+
+}
+
+#
+# Fonction pour supprimer les variables sensibles.
+#
+function deinit_duplicity {
+
+	case "${DUPLICITY_BACKEND}" in
+		hubic )		unset CLOUDFILES_USERNAME
+					unset CLOUDFILES_APIKEY
+					unset CLOUDFILES_AUTHURL
+					;;
+		* )			break
+	esac
+
+	unset PASSPHRASE
+
+}
+
+#
 # Fonction pour nettoyer le système avant de quitter le script.
 #
 function cleanup {
-	echo "Nettoyage"
+
+	code=$?
+
+	if [ $code -ne 0 ]; then 
+		verbose_exec echo "Attention: une erreur est survenue !"
+	fi
+
+	verbose_exec echo "Nettoyage en sortie"
 
 	# On nettoie les variables sensibles.
-	unset CLOUDFILES_USERNAME
-	unset CLOUDFILES_APIKEY
-	unset PASSPHRASE
+	deinit_duplicity
 
 	# On calcul le temps du script.
 	end=$(date +"%s")
 	diff=$(($end-$start))
 
 	# Message de sortie
-	echo_msg "Sauvegarde terminée à $(date) en $(($diff / 60)) minutes et $(($diff % 60)) secondes."
-	echo_msg "-------- end --------"
+	verbose_exec echo "Commande terminée le $(date) en $(($diff / 60)) minutes et $(($diff % 60)) secondes."
+	verbose_exec echo "-------- end --------"
 
-	# On envoi le mail si besoin
-	if [ "`stat --format %s ${LOGFILE}`" != "0" ] && [ "$EMAIL" != "0" ] ; then
-		cat ${LOGFILE} | mail -s "ETD Backup - $SAUVNAME - Erreurs" ${EMAIL}
+	# On envoi le fichier de log par mail si erreur
+	if [ $code -ne 0 ] && [ "`stat --format %s ${LOGFILE}`" != "0" ] && [ "$EMAIL" != "0" ] ; then
+		cat ${LOGFILE} | mail -s "ETD Backup - $SAUVNAME - Erreur" ${EMAIL}
 	fi
+
+	exit $code
 }
 
 #### Main
@@ -230,7 +373,7 @@ if [ "$1" != "" ] ; then
 
 	# On vérifie que la commande exite.
 	if [[ "$1" != "backup" && "$1" != "restore" && "$1" != "clean" && "$1" != "test" && "$1" != "purge" ]]; then
-		echo_msg "Attention: La commande $1 est inconnue et a été ignorée"
+		verbose_exec echo "Attention: La commande $1 est inconnue et a été ignorée"
 		usage
 		exit
 	fi
@@ -239,15 +382,15 @@ if [ "$1" != "" ] ; then
 	shift
 fi
 
-echo "${func}" 1>&3
-
 # On traite les paramètres
 while [ "$1" != "" ] ; do
 	case "$1" in
 		--ignore-db )		ignore_db=1
 							;;
 		--ignore-files )	ignore_files=1
-							;;	
+							;;
+		-a | --archive )	archive=1
+							;;
 		-v | --verbose )	verbose=1
 							;;
 		-h | --help )		usage
@@ -256,26 +399,29 @@ while [ "$1" != "" ] ; do
 		--) 				shift
 							break;
 							;;
-		-?*)				echo_msg "Attention: L'option $1 est inconnue et a été ignorée"
+		-?*)				verbose_exec echo "Attention: L'option $1 est inconnue et a été ignorée"
 							;;
 		* )					break
 	esac
 	shift
 done
 
-echo_msg "-------- etd-backup - $(date) --------"
+verbose_exec echo "-------- etd-backup - $(date) --------"
 
 init
 
-echo_msg "Commande exécutée : ${func}"
+verbose_exec echo "Commande exécutée : ${func}"
 
 case "${func}" in
 
 	# Sauvegarde
 	backup )
+
+		# on prépare les variables pour duplicity
+		init_duplicity
 	
-		# Dossiers temporaires
-		mk_tmp_dirs
+		# On crée les dossiers
+		mk_dirs
 
 		# Si la sauvegarde des bdd est activée
 		if [ ${ignore_db} -eq 0 ]; then
@@ -288,25 +434,62 @@ case "${func}" in
 		fi
 
 		# On crée l'archive
-		make_archive
+		if [ ${archive} -eq 1 ]; then
+			make_archive
+		fi
 
 		# On nettoie les anciennes sauvegardes
 		clean_old_local_backups
 
-		# On envoi les sauvegardes sur hubiC
-		send_backups_to_hubic
+		# On envoi les sauvegardes sur le serveur distant
+		send_backups_to_duplicity
 
-		# On supprime les vieilles sauvegardes sur hubiC
-		clean_old_hubic_backups
+		# On supprime les vieilles sauvegardes sur le serveur distant
+		remove_old_duplicity_backups
 
-		# On envoi le rapport par email
-		send_hubic_report
+		# On crée le rapport
+		duplicity_report
 
 		;;
 
+	# Nettoyage
 	clean )
+
+		# on prépare les variables le serveur distant
+		init_duplicity
+
+		# On nettoie les anciennes sauvegardes
+		clean_old_local_backups
+
+		# On supprime les vieilles sauvegardes sur le serveur distant
+		clean_duplicity_backups
 		
+		;;
+
+	# Purge
+	purge )
+
+		# on prépare les variables le serveur distant
+		init_duplicity
+
+		# On supprime tous les fichiers et dossiers locaux
+		purge_local
+
+		# On supprime tous les distants
+		purge_duplicity
+
+		;;
+
+	# Test
+	test )
+
+		# on prépare les variables le serveur distant
+		init_duplicity
+
+		# On teste la dernière sauvegarde le serveur distant
+		test_duplicity
+
 		;;
 esac
 
-exit 1
+exit 0
