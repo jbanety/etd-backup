@@ -206,18 +206,13 @@ function send_backups_to_duplicity {
 
 	verbose_exec echo "Envoi des backups sur le serveur distant"
 
-	progress=""
-	if [ $verbose -eq 1 ]; then
-		progress=" --progress"
-	fi
-
 	dirtosend=${DATATMP}
 	if [ $archive -eq 1 ]; then
 		dirtosend=${DATADIR}
 	fi
 
 	# On appel duplicity pour effectuer la sauvegarde cryptée sur le serveur distant
-	verbose_exec ${DUPLICITY_BIN} --full-if-older-than ${FULLIFOLDERTHAN}${progress} / ${DUPLICITY_URL} --include ${dirtosend}/ --exclude '**'
+	verbose_exec ${DUPLICITY_BIN} --full-if-older-than ${FULLIFOLDERTHAN} / ${DUPLICITY_URL} --include ${dirtosend}/ --exclude '**'
 
 	verbose_exec echo "Envoi terminé"
 }
