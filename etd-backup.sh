@@ -299,7 +299,6 @@ function init_duplicity {
 					;;
 		sftp )		DUPLICITY_URL="sftp://${SFTP_USER}@${SFTP_HOST}:${SFTP_PORT}/${SFTP_FOLDER}"
 					;;
-		* )			break
 	esac
 
 	export PASSPHRASE
@@ -316,7 +315,6 @@ function deinit_duplicity {
 					unset CLOUDFILES_APIKEY
 					unset CLOUDFILES_AUTHURL
 					;;
-		* )			break
 	esac
 
 	unset PASSPHRASE
