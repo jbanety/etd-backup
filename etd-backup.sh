@@ -35,6 +35,7 @@ verbose=0
 ignore_db=0
 ignore_files=0
 archive=0
+purge_files_cmd=
 func=
 
 ## Logging des messages
@@ -201,17 +202,23 @@ function purge_local {
 
 }
 
+#
+# Fonction pour supprimer les fichiers distants.
+#
 function purge_duplicity {
 
 	verbose_exec echo "Suppression de tous les fichiers distants"
 
 	# On supprime le dossier des données
-	verbose_exec ${DUPLICITY_BIN} remove-older-than now --force ${DUPLICITY_URL}
+	${purge_files_cmd}
 
 	verbose_exec echo "Suppression effectuée"
 
 }
 
+#
+# Fonction pour supprimer les fichiers temporaires
+#
 function purge_tmp_files {
 
 	rm -rf ${DATATMP}
@@ -315,8 +322,14 @@ function init_duplicity {
 					export CLOUDFILES_USERNAME=${HUBIC_USER}
 					export CLOUDFILES_APIKEY=${HUBIC_PASSWORD}
 					export CLOUDFILES_AUTHURL="duplicity|${HUBIC_APPID}|${HUBIC_APPSECRET}|${HUBIC_APPURLREDIRECT}"
+					purge_files_cmd="${DUPLICITY_BIN} remove-older-than now --force ${DUPLICITY_URL}"
 					;;
 		sftp )		DUPLICITY_URL="sftp://${SFTP_USER}@${SFTP_HOST}:${SFTP_PORT}/${SFTP_FOLDER}"
+					purge_files_cmd="${SFTP_BIN} -b - -oPort=${SFTP_PORT} ${SFTP_USER}@${SFTP_HOST} <<EOF
+! touch dummy.txt
+put dummy.txt
+EOF"
+					echo "${purge_files_cmd}" 1>&3
 					;;
 	esac
 
