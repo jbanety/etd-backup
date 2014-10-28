@@ -163,6 +163,17 @@ function remove_old_duplicity_backups {
 }
 
 #
+# Fonction pour vider le fichier de log
+#
+function clean_log_file {
+
+	verbose_exec echo "Vidage du fichier de log"
+	echo -n "" > ${LOGFILE}
+	verbose_exec echo "Vidage terminé"
+	
+}
+
+#
 # Fonction pour supprimer les fichiers inutiles et récupérer de l'espace libre.
 #
 function clean_duplicity_backups {
@@ -458,6 +469,9 @@ case "${func}" in
 
 		# On supprime les vieilles sauvegardes sur le serveur distant
 		clean_duplicity_backups
+		
+		# On vide le fichier de log
+		clean_log_file
 		
 		;;
 
