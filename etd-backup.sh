@@ -140,7 +140,9 @@ function clean_old_local_backups {
 
 	verbose_exec echo "Suppression des vieux backups locaux"
 	if [ -d ${DATADIR} ]; then
-		find ${DATADIR} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
+		if [ $archive -eq 1 ]; then
+			find ${DATADIR} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
+		fi
 	fi
 	verbose_exec echo "Suppression effectuée"
 
