@@ -212,6 +212,12 @@ function purge_duplicity {
 
 }
 
+function purge_tmp_files {
+
+	rm -rf ${DATATMP}
+	
+}
+
 #
 # Fonction pour stocker les sauvegardes cryptées sur le serveur distant
 #
@@ -443,7 +449,7 @@ case "${func}" in
 		if [ ${archive} -eq 1 ]; then
 			make_archive
 		fi
-
+		
 		# On nettoie les anciennes sauvegardes
 		clean_old_local_backups
 
@@ -455,6 +461,9 @@ case "${func}" in
 
 		# On crée le rapport
 		duplicity_report
+		
+		# On nettoie les fichiers temporaires
+		purge_tmp_files
 
 		;;
 
