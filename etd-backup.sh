@@ -86,7 +86,7 @@ function db_backup {
 	verbose_exec echo "Bases de données sauvegardées"
 
 }
-D
+
 #
 # Fonction pour sauvegarder les fichiers
 function files_backup {
