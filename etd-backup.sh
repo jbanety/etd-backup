@@ -293,9 +293,9 @@ function cleanup {
         verbose_exec echo "-------- end --------"
 
         # On envoi le fichier de log par mail si erreur
-        if [ $code -ne 0 ] && [ "`stat --format %s ${LOGFILE}`" != "0" ] && [ "$EMAIL" != "0" ] ; then
-                cat ${LOGFILE} | mail -s "ETD Backup - $SAUVNAME - Erreur" ${EMAIL}
-        fi
+        #if [ $code -ne 0 ] && [ "`stat --format %s ${LOGFILE}`" != "0" ] && [ "$EMAIL" != "0" ] ; then
+        #        cat ${LOGFILE} | mail -s "ETD Backup - $SAUVNAME - Erreur" ${EMAIL}
+        #fi
 
         exit $code
 }
