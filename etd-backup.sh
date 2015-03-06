@@ -149,20 +149,6 @@ function clean_old_local_backups {
 }
 
 #
-# Fonction pour supprimer les vieilles sauvegardes sur le serveur distant.
-#
-function remove_old_duplicity_backups {
-
-        verbose_exec echo "Suppression des vieux backups distants"
-
-        # Suppression des vieux backups
-        verbose_exec ${DUPLICITY_BIN} remove-older-than ${RETENTION}D --force ${DUPLICITY_URL}
-
-        verbose_exec echo "Suppression effectuée"
-
-}
-
-#
 # Fonction pour vider le fichier de log
 #
 function clean_log_file {
@@ -170,17 +156,6 @@ function clean_log_file {
         verbose_exec echo "Vidage du fichier de log"
         echo -n "" > ${LOGFILE}
         verbose_exec echo "Vidage terminé"
-
-}
-
-#
-# Fonction pour supprimer les fichiers inutiles et récupérer de l'espace libre.
-#
-function clean_duplicity_backups {
-	
-        verbose_exec echo "Suppression des fichiers inutiles sur le serveur distant"
-        verbose_exec ${DUPLICITY_BIN} cleanup --force --extra-clean ${DUPLICITY_URL}
-        verbose_exec echo "Suppression effectuée"
 
 }
 
@@ -196,20 +171,6 @@ function purge_local {
 
         # On supprime le dossier temporaire
         rm -rf ${DATATMP}
-
-        verbose_exec echo "Suppression effectuée"
-
-}
-
-#
-# Fonction pour supprimer les fichiers distants.
-#
-function purge_duplicity {
-
-        verbose_exec echo "Suppression de tous les fichiers distants"
-
-        # On supprime le dossier des données
-        ${SFTP_BIN} -u ${SFTP_USER},placeholder -p ${SFTP_PORT} -e "cd /${SFTP_FOLDER}; glob rm -r -f *; bye" sftp://${SFTP_HOST}
 
         verbose_exec echo "Suppression effectuée"
 
@@ -237,7 +198,7 @@ function send_backups_to_duplicity {
         fi
 
         # On appel duplicity pour effectuer la sauvegarde cryptée sur le serveur distant
-        verbose_exec ${DUPLICITY_BIN} --full-if-older-than ${FULLIFOLDERTHAN} / ${DUPLICITY_URL} --include ${dirtosend}/ --exclude '**'
+        verbose_exec ${DUPLICITY_BIN} -c ${CONFIGFILE} -b
 
         verbose_exec echo "Envoi terminé"
 }
@@ -250,7 +211,7 @@ function duplicity_report {
         verbose_exec echo "Récupération du rapport sur les sauvegardes le serveur distant"
 
         # Rapport sur le backup
-        verbose_exec ${DUPLICITY_BIN} collection-status ${DUPLICITY_URL}
+        verbose_exec ${DUPLICITY_BIN} -c ${CONFIGFILE} -s
 
         verbose_exec echo "Récupération terminée"
 
@@ -264,7 +225,7 @@ function test_duplicity {
         verbose_exec echo "Vérification des données"
 
         # On vérifie la sauvegarde
-        verbose_exec ${DUPLICITY_BIN} verify --compare-data ${DUPLICITY_URL} ${DATADIR}
+        verbose_exec ${DUPLICITY_BIN} -c ${CONFIGFILE} -v
         
         verbose_exec echo "Vérification terminée"
 
@@ -312,23 +273,6 @@ function init {
 }
 
 #
-# Fonction pour préparer l'appel à duplicity
-#
-function init_duplicity {
-
-        DUPLICITY_URL="sftp://${SFTP_USER}@${SFTP_HOST}:${SFTP_PORT}/${SFTP_FOLDER}"
-        export PASSPHRASE
-
-}
-
-#
-# Fonction pour supprimer les variables sensibles.
-#
-function deinit_duplicity {
-        unset PASSPHRASE
-}
-
-#
 # Fonction pour nettoyer le système avant de quitter le script.
 #
 function cleanup {
@@ -339,9 +283,6 @@ function cleanup {
         fi
 
         verbose_exec echo "Nettoyage en sortie"
-
-        # On nettoie les variables sensibles.
-        deinit_duplicity
 
         # On calcul le temps du script.
         end=$(date +"%s")
@@ -416,9 +357,6 @@ case "${func}" in
         # Sauvegarde
         backup )
 
-                # on prépare les variables pour duplicity
-                init_duplicity
-
                 # On crée les dossiers
                 mk_dirs
 
@@ -457,9 +395,6 @@ case "${func}" in
         # Nettoyage
         clean )
 
-                # on prépare les variables pour duplicity
-                init_duplicity
-
                 # On nettoie les anciennes sauvegardes
                 clean_old_local_backups
 
@@ -474,9 +409,6 @@ case "${func}" in
         # Purge
         purge )
 
-                # on prépare les variables pour duplicity
-                init_duplicity
-
                 # On supprime tous les fichiers et dossiers locaux
                 purge_local
 
@@ -488,9 +420,6 @@ case "${func}" in
         # Test
         test )
 
-                # on prépare les variables pour duplicity
-                init_duplicity
-
                 # On teste la dernière sauvegarde le serveur distant
                 test_duplicity
 
@@ -498,9 +427,6 @@ case "${func}" in
 
         # Statut
         status )
-
-                # on prépare les variables pour duplicity
-                init_duplicity
 
                 duplicity_report
 
