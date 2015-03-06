@@ -63,7 +63,7 @@ function mk_dirs {
         verbose_exec echo "Création des dossiers"
         mkdir -p ${DATATMP}/${DATANAME}/mysql
         mkdir -p ${DATATMP}/${DATANAME}/www
-        mkdir -p ${DATADIR}
+        mkdir -p ${ROOT}
         verbose_exec echo "Dossiers créés"
 }
 
@@ -86,7 +86,7 @@ function db_backup {
 	verbose_exec echo "Bases de données sauvegardées"
 
 }
-
+D
 #
 # Fonction pour sauvegarder les fichiers
 function files_backup {
@@ -122,8 +122,8 @@ function make_archive {
         chmod 600 ${DATANAME}${COMPRESSION_EXT}
 
         # On la déplace dans le répertoire final de stockage
-        if [ "$DATATMP" != "$DATADIR" ] ; then
-                mv ${DATANAME}${COMPRESSION_EXT} ${DATADIR}
+        if [ "$DATATMP" != "$ROOT" ] ; then
+                mv ${DATANAME}${COMPRESSION_EXT} ${ROOT}
         fi
 
         # On supprime le répertoire temporaire
@@ -139,9 +139,9 @@ function make_archive {
 function clean_old_local_backups {
 
         verbose_exec echo "Suppression des vieux backups locaux"
-        if [ -d ${DATADIR} ]; then
+        if [ -d ${ROOT} ]; then
             	if [ $archive -eq 1 ]; then
-                        find ${DATADIR} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
+                        find ${ROOT} -name "*${COMPRESSION_EXT}" -mtime +${RETENTION} -print -exec rm {} \;
                 fi
         fi
         verbose_exec echo "Suppression effectuée"
@@ -167,7 +167,7 @@ function purge_local {
         verbose_exec echo "Suppression de tous les fichiers locaux"
 
         # On supprime le dossier des données
-        rm -rf ${DATADIR}
+        rm -rf ${ROOT}
 
         # On supprime le dossier temporaire
         rm -rf ${DATATMP}
@@ -191,11 +191,6 @@ function purge_tmp_files {
 function send_backups_to_duplicity {
 
         verbose_exec echo "Envoi des backups sur le serveur distant"
-
-        dirtosend=${DATATMP}
-        if [ $archive -eq 1 ]; then
-                dirtosend=${DATADIR}
-        fi
 
         # On appel duplicity pour effectuer la sauvegarde cryptée sur le serveur distant
         verbose_exec ${DUPLICITY_BIN} -c ${CONFIGFILE} -b
