@@ -17,11 +17,9 @@ echo "USAGE:
 
   CURRENT SCRIPT VARIABLES:
   ========================
-    DEST (backup destination)       = ${DEST}
-    INCLIST (directories included)  = ${INCLIST[@]:0}
-    EXCLIST (directories excluded)  = ${EXCLIST[@]:0}
     ROOT (root directory of backup) = ${ROOT}
     LOGFILE (log file path)         = ${LOGFILE}
+    DB USER                         = ${DB_USER}
 "
 }
 
@@ -127,10 +125,6 @@ check_variables
 check_logdir
 
 echo -e "--------    START ETD-BACKUP SCRIPT    --------\n" >> ${LOGFILE}
-
-INCLUDE=
-EXCLUDE=
-EXCLUDEROOT=
 
 db_backup()
 {
