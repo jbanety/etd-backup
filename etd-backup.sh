@@ -146,11 +146,19 @@ duplicity_backup()
 
 }
 
+clean_files()
+{
+
+  eval ${ECHO} rm -f {ROOT}/*.sql
+
+}
+
 case "$COMMAND" in
 
   "backup")
     	db_backup
     	duplicity_backup
+    	clean_files
     exit
   ;;
 
