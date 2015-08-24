@@ -15,6 +15,8 @@ echo "USAGE:
 
     -b, --backup               runs a backup
 
+    -d, --debug                echo commands to logfile
+
   CURRENT SCRIPT VARIABLES:
   ========================
     ROOT (root directory of backup) = ${ROOT}
@@ -159,3 +161,11 @@ case "$COMMAND" in
 esac
 
 echo -e "---------    END ETD-BACKUP SCRIPT    ---------\n" >> ${LOGFILE}
+
+# remove old logfiles
+# stops them from piling up infinitely
+[[ -n "${REMOVE_LOGS_OLDER_THAN}" ]] && find ${LOGDIR} -type f -mtime +"${REMOVE_LOGS_OLDER_THAN}" -delete
+
+if [ ${ECHO} ]; then
+  echo "TEST RUN ONLY: Check the logfile for command output."
+fi
