@@ -142,7 +142,7 @@ duplicity_backup()
 {
   OPTION="--backup"
 
-  eval ${ECHO} ${DUPLICITY_BACKUP} ${OPTION}
+  eval ${ECHO} ${DUPLICITY_BACKUP} ${OPTION} --config ${DUPLICITY_BACKUP_CONF}
 
 }
 

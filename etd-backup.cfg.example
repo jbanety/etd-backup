@@ -25,6 +25,8 @@ MYSQLDUMP_OPTIONS="--single-transaction --skip-comments --add-locks --lock-table
 # @var string Chemin vers l'exécutable duplicity-backup
 DUPLICITY_BACKUP="/root/duplicity-backup/duplicity-backup.sh"
 
+DUPLICITY_BACKUP_CONF="/root/duplicity-backup/duplicity-backup.conf"
+
 LOGDIR="/var/log/etd-backup/"
 LOG_FILE="etd-backup-`date +%Y-%m-%d_%H-%M`.txt"
 LOG_FILE_OWNER="root:root"
