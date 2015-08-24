@@ -28,3 +28,4 @@ DUPLICITY_BACKUP="/root/duplicity-backup/duplicity-backup.sh"
 LOGDIR="/var/log/etd-backup/"
 LOG_FILE="etd-backup-`date +%Y-%m-%d_%H-%M`.txt"
 LOG_FILE_OWNER="root:root"
+REMOVE_LOGS_OLDER_THAN='30'
