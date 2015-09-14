@@ -36,3 +36,6 @@ LOG_FILE="etd-backup-`date +%Y-%m-%d_%H-%M`.txt"
 
 # Propriétaire des fichiers de log
 LOG_FILE_OWNER="root:root"
+
+# Durée de rétention des logs
+REMOVE_LOGS_OLDER_THAN='30'
