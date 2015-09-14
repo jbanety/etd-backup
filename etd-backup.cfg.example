@@ -7,27 +7,32 @@
 # @author      Jean-Baptiste Alleaume (@jbanety) http://alleau.me
 #
 
-# @var string Répertoire de stockage des sauvegardes
+# Répertoire de stockage des sauvegardes
 ROOT="/var/etd-backup"
 
-# @var string Utilisateur MySQL utilisé pour le dump
+# Utilisateur MySQL utilisé pour le dump
 DB_USER="etdbackup"
 
-# @var string Mot de passe
+# Mot de passe MySQL
 DB_PASS=""
 
-# @var string Noms des bases de données à exclure (regex)
-DB_EXCLUSIONS="(information_schema|performance_schema)"
+# Noms des bases de données à exclure (regexp)
+DB_EXCLUSIONS="(information_schema|performance_schema|phpmyadmin)"
 
-# @var string Options à passer à mysqldump
-MYSQLDUMP_OPTIONS="--single-transaction --skip-comments --add-locks --lock-tables --routines --add-drop-table --extended-insert"
+# Options à passer à mysqldump
+MYSQLDUMP_OPTIONS="--single-transaction --skip-comments --add-locks --lock-tables --routines --add-drop-table --add-drop-database --extended-insert"
 
-# @var string Chemin vers l'exécutable duplicity-backup
+# Chemin vers le script Duplicity Backup
 DUPLICITY_BACKUP="/root/duplicity-backup/duplicity-backup.sh"
 
+# Chemin vers le fichier de configuration Duplicity Backup
 DUPLICITY_BACKUP_CONF="/root/duplicity-backup/duplicity-backup.conf"
 
+# Dossier des fichiers de log
 LOGDIR="/var/log/etd-backup/"
+
+# Nom du fichier de log
 LOG_FILE="etd-backup-`date +%Y-%m-%d_%H-%M`.txt"
+
+# Propriétaire des fichiers de log
 LOG_FILE_OWNER="root:root"
-REMOVE_LOGS_OLDER_THAN='30'
