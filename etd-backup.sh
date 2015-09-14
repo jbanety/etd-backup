@@ -149,7 +149,7 @@ duplicity_backup()
 clean_files()
 {
 
-  eval ${ECHO} rm -f {ROOT}/*.sql
+  eval ${ECHO} rm -f ${ROOT}/*.sql
 
 }
 
