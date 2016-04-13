@@ -7,8 +7,11 @@
 # @author      Jean-Baptiste Alleaume (@jbanety) http://alleau.me
 #
 
-# Répertoire de stockage des sauvegardes
-ROOT="/var/etd-backup"
+# Répertoire(s) à sauvegarder (séparés par un espace)
+DIRS_TO_BACKUP="/var/www"
+
+# Répertoire de stockage des dumps des bases de données
+DB_DUMPS_DIR="/var/etd-backup"
 
 # Utilisateur MySQL utilisé pour le dump
 DB_USER="etdbackup"
@@ -22,11 +25,11 @@ DB_EXCLUSIONS="(information_schema|performance_schema|phpmyadmin)"
 # Options à passer à mysqldump
 MYSQLDUMP_OPTIONS="--single-transaction --skip-comments --add-locks --lock-tables --routines --add-drop-table --add-drop-database --extended-insert"
 
-# Chemin vers le script Duplicity Backup
-DUPLICITY_BACKUP="/root/duplicity-backup/duplicity-backup.sh"
+# Chemin vers BUP
+BUP="/usr/local/bin/bup/bin/bup"
 
-# Chemin vers le fichier de configuration Duplicity Backup
-DUPLICITY_BACKUP_CONF="/root/duplicity-backup/duplicity-backup.conf"
+# Dossier de destination des sauvegardes BUP
+BUP_DEST="/root/.bup" 
 
 # Dossier des fichiers de log
 LOGDIR="/var/log/etd-backup/"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (C) 2015 ETD Solutions. All rights reserved.
+# Copyright (C) 2016 ETD Solutions. All rights reserved.
 #
 
 # Default config file
@@ -15,17 +15,24 @@ echo "USAGE:
 
     -b, --backup               runs a backup
 
+    -v, --verify               verify a backup
+
+    -r, --restore              extract files from a backup set
+    --outdir OUTDIR            specify the output directory for restored data
+
     -d, --debug                echo commands to logfile
 
   CURRENT SCRIPT VARIABLES:
   ========================
-    ROOT (root directory of backup) = ${ROOT}
-    LOGFILE (log file path)         = ${LOGFILE}
-    DB USER                         = ${DB_USER}
+    DIRS_TO_BACKUP (directories to backup)    = ${DIRS_TO_BACKUP}
+    DB_DUMPS_DIR (root directory of db dumps) = ${DB_DUMPS_DIR}
+    LOGFILE (log file path)                   = ${LOGFILE}
+    DB_USER                                   = ${DB_USER}
+    BUP_DEST (directory to store BUP backups) = ${BUP_DEST}
 "
 }
 
-while getopts ":c:t:bfvlsnd-:" opt; do
+while getopts ":c:bvrd-:" opt; do
   case $opt in
     # parse long options (a bit tricky because builtin getopts does not
     # manage long options and I don't want to impose GNU getopt dependancy)
@@ -38,6 +45,10 @@ while getopts ":c:t:bfvlsnd-:" opt; do
             OPTIND=$(( $OPTIND + 1 )) # we found it, move forward in arg parsing
           fi
         ;;
+        outdir) 
+          OUTDIR=${!OPTIND}
+          OPTIND=$(( $OPTIND + 1 )) # we found it, move forward in arg parsing
+	;;
         debug)
           ECHO=$(which echo)
         ;;
@@ -48,8 +59,10 @@ while getopts ":c:t:bfvlsnd-:" opt; do
     ;;
     # here are parsed the short options
     c) CONFIG=$OPTARG;; # set the config file from the command line
+    v) COMMAND="verify";;
+    r) COMMAND="restore";;
     b) COMMAND="backup";;
-	d) ECHO=$(which echo);; # debug
+    d) ECHO=$(which echo);; # debug
     :)
       echo "Option -$OPTARG requires an argument." >&2
       COMMAND=""
@@ -71,14 +84,13 @@ else
   exit 1
 fi
 
-if [ ! -x "$DUPLICITY_BACKUP" ]; then
-  echo "ERROR: duplicity-backup not found!" >&2
+if [ ! -x "$BUP" ]; then
+  echo "ERROR: BUP not found!" >&2
   exit 1
 fi
 
 # Ensure a trailing slash always exists in the log directory name
 LOGDIR="${LOGDIR%/}/"
-
 LOGFILE="${LOGDIR}${LOG_FILE}"
 
 config_sanity_fail()
@@ -91,13 +103,15 @@ config_sanity_fail()
 
 check_variables ()
 {
-  [[ ${ROOT} = "" ]] && config_sanity_fail "ROOT must be configured"
+  [[ ${DIRS_TO_BACKUP} = "" ]] && config_sanity_fail "DIRS_TO_BACKUP must be configured"
+  [[ ${DB_DUMPS_DIR} = "" ]] && config_sanity_fail "DB_DUMPS_DIR must be configured"
   [[ ${DB_PASS} = "" ]] && config_sanity_fail "DB_PASS must be configured"
   [[ ${LOGDIR} = "" ]] && config_sanity_fail "LOGDIR must be configured"
+  [[ ${BUP_DEST} = "" ]] && config_sanity_fail "BUP_DEST must be configured"
 }
 
 
-check_logdir()
+check_dirs()
 {
   if [ ! -d ${LOGDIR} ]; then
     echo "Attempting to create log directory ${LOGDIR} ..."
@@ -121,10 +135,32 @@ check_logdir()
     echo "Aborting..."
     exit 1
   fi
+  if [ ! -d ${DB_DUMPS_DIR} ]; then
+    echo "Attempting to create db dumps directory ${DB_DUMPS_DIR} ..."
+    if ! mkdir -p ${DB_DUMPS_DIR}; then
+      echo "DB dumps directory ${DB_DUMPS_DIR} could not be created by this user: ${USER}"
+      echo "Aborting..."
+      exit 1
+    else
+      echo "Directory ${DB_DUMPS_DIR} successfully created."
+    fi
+    echo "Attempting to change owner:group of ${DB_DUMPS_DIR} to ${LOG_FILE_OWNER} ..."
+    if ! chown ${LOG_FILE_OWNER} ${DB_DUMPS_DIR}; then
+      echo "User ${USER} could not change the owner:group of ${DB_DUMPS_DIR} to $LOG_FILE_OWNER"
+      echo "Aborting..."
+      exit 1
+    else
+      echo "Directory ${DB_DUMPS_DIR} successfully changed to owner:group of ${LOG_FILE_OWNER}"
+    fi
+  elif [ ! -w ${DB_DUMPS_DIR} ]; then
+    echo "DB dumps directory ${DB_DUMPS_DIR} is not writeable by this user: ${USER}"
+    echo "Aborting..."
+    exit 1
+  fi
 }
 
 check_variables
-check_logdir
+check_dirs
 
 echo -e "--------    START ETD-BACKUP SCRIPT    --------\n" >> ${LOGFILE}
 
@@ -133,23 +169,58 @@ db_backup()
 
   databases="$(mysql -u $DB_USER -p$DB_PASS -Bse 'show databases' | grep -v -E $DB_EXCLUSIONS)"
   for database in ${databases[@]}; do
-    mysqldump -u $DB_USER -p$DB_PASS ${MYSQLDUMP_OPTIONS} $database > ${ROOT}/${database}.sql
+    mysqldump -u $DB_USER -p$DB_PASS ${MYSQLDUMP_OPTIONS} $database > ${DB_DUMPS_DIR}/${database}.sql
   done
 
 }
 
-duplicity_backup()
+bup_backup()
 {
-  OPTION="--backup"
 
-  eval ${ECHO} ${DUPLICITY_BACKUP} ${OPTION} --config ${DUPLICITY_BACKUP_CONF}
+  INIT_OPTIONS=""
+  eval ${ECHO} BUP_DIR=${BUP_DEST} ${BUP} init ${INIT_OPTIONS}
 
+  INDEX_OPTIONS=""
+  if [ -n ${BUP_EXCLUDE} ] ; then
+    INDEX_OPTIONS="${INDEX_OPTIONS} --exclude-rx=${BUP_EXCLUDE}"
+  fi
+  eval ${ECHO} BUP_DIR=${BUP_DEST} ${BUP} index ${INDEX_OPTIONS} ${DB_DUMPS_DIR} ${DIRS_TO_BACKUP}
+
+  SAVE_OPTIONS="-n backup"
+  eval ${ECHO} BUP_DIR=${BUP_DEST} ${BUP} save ${SAVE_OPTIONS} ${DB_DUMPS_DIR} ${DIRS_TO_BACKUP}
+
+}
+
+bup_fsck()
+{
+
+  INDEX_OPTIONS="--check"
+  if [ -n ${BUP_EXCLUDE} ] ; then
+    INDEX_OPTIONS="${INDEX_OPTIONS} --exclude-rx=${BUP_EXCLUDE}"
+  fi
+  eval ${ECHO} BUP_DIR=${BUP_DEST} ${BUP} index ${INDEX_OPTIONS}
+
+  FSCK_OPTIONS="-v"
+  eval ${ECHO} BUP_DIR=${BUP_DEST} ${BUP} fsck ${FSCK_OPTIONS}
+
+}
+
+bup_restore()
+{
+
+  RESTORE_OPTIONS="-v"
+  if [ -n "${OUTDIR}" ] ; then 
+    RESTORE_OPTIONS="${RESTORE_OPTIONS} --outdir=${OUTDIR}"
+  fi
+
+  eval ${ECHO} BUP_DIR=${BUP_DEST} ${BUP} restore ${RESTORE_OPTIONS} /backup/latest 
+  
 }
 
 clean_files()
 {
 
-  eval ${ECHO} rm -f ${ROOT}/*.sql
+  eval ${ECHO} rm -f ${DB_DUMPS_DIR}/*.sql
 
 }
 
@@ -157,8 +228,18 @@ case "$COMMAND" in
 
   "backup")
     	db_backup
-    	duplicity_backup
+    	bup_backup
     	clean_files
+    exit
+  ;;
+
+  "verify")
+	bup_fsck
+    exit
+  ;;
+
+  "restore")
+	bup_restore
     exit
   ;;
 
