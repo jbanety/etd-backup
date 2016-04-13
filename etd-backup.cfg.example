@@ -28,6 +28,9 @@ MYSQLDUMP_OPTIONS="--single-transaction --skip-comments --add-locks --lock-table
 # Chemin vers BUP
 BUP="/usr/local/bin/bup/bin/bup"
 
+# Exclusion de la sauvegarde BUP (regexp python)
+BUP_EXCLUDE="/\\.git/$"
+
 # Dossier de destination des sauvegardes BUP
 BUP_DEST="/root/.bup" 
 
